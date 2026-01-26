@@ -8,42 +8,29 @@ import {
   useUpdatePopStatusMutation,
   useUpdateCocpStatusMutation,
 } from "@/api/serviceApi";
-import { Pop, Cocp, User, DeliveryStatus} from "@/types"; // Import new types
+import { Pop, Cocp, User, DeliveryStatus } from "@/types";
 import Image from "next/image";
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import toast from "react-hot-toast";
 import Swal from "sweetalert2";
 
 // Enum for the *approval* status
-// (This was already in your file)
 enum ServiceStatus {
   Pending = "pending",
   Accept = "accept",
   Decline = "decline",
 }
 
-// Enum for the *delivery* status
-// (This was at the bottom of your file, make sure it's accessible)
-// We'll assume it's imported from @/types
-/*
-export enum DeliveryStatus {
-  Pending = "pending",
-  Started = "started",
-  Done = "done",
-}
-*/
-
-// --- NEW ENUM ---
-// This enum defines the state of the UI tabs
+// Enum for the UI tabs
 enum TabStatus {
   Pending = "pending",
   Accept = "accept",
   Decline = "decline",
-  Done = "done", // The new tab
+  Done = "done",
 }
 
-// --- Utility function to format ISO date string ---
+// Utility function to format ISO date string
 const formatDateTime = (isoString: string) => {
   if (!isoString) return { date: "N/A", time: "N/A" };
   try {
@@ -62,14 +49,17 @@ const formatDateTime = (isoString: string) => {
     return { date: "Invalid Date", time: "Invalid Time" };
   }
 };
-// ----------------------------------------------------
+
+// Type for grouped requests
+interface GroupedRequests {
+  user: Partial<User>;
+  requests: (Pop | Cocp)[];
+}
 
 const OurServicePage = () => {
   const [activeServiceTab, setActiveServiceTab] = useState<"POP" | "COCP">(
     "POP"
   );
-  // --- MODIFIED ---
-  // Use the new TabStatus enum for this state
   const [activeStatusTab, setActiveStatusTab] = useState<TabStatus>(
     TabStatus.Pending
   );
@@ -77,9 +67,9 @@ const OurServicePage = () => {
   // Pagination state
   const [popPage, setPopPage] = useState(1);
   const [cocpPage, setCocpPage] = useState(1);
-  const localLimit = 10; // Items per page
+  const localLimit = 10;
 
-  // --- RTK Query Data Fetching Hooks ---
+  // RTK Query Data Fetching Hooks
   const popQueryParams = { page: 1, limit: 1000 };
   const cocpQueryParams = { page: 1, limit: 1000 };
 
@@ -101,7 +91,7 @@ const OurServicePage = () => {
     skip: activeServiceTab !== "COCP",
   });
 
-  // --- RTK Query Mutation Hooks ---
+  // RTK Query Mutation Hooks
   const [deletePop] = useDeletePopMutation();
   const [deleteCocp] = useDeleteCocpMutation();
   const [updatePopStatus, { isLoading: isUpdatingPop }] =
@@ -111,16 +101,13 @@ const OurServicePage = () => {
 
   const isUpdatingStatus = isUpdatingPop || isUpdatingCocp;
 
-  // --- Event Handlers ---
-
+  // Event Handlers
   const handleServiceTabChange = (tab: "POP" | "COCP") => {
     setActiveServiceTab(tab);
     setPopPage(1);
     setCocpPage(1);
   };
 
-  // --- MODIFIED ---
-  // Update the parameter type to use TabStatus
   const handleStatusTabChange = (status: TabStatus) => {
     setActiveStatusTab(status);
     if (activeServiceTab === "POP") {
@@ -146,7 +133,7 @@ const OurServicePage = () => {
       console.error(`Failed to ${actionText} request:`, err);
       toast.error(
         err.data?.message ||
-          `An error occurred while trying to ${actionText} the request.`
+        `An error occurred while trying to ${actionText} the request.`
       );
     }
   };
@@ -175,7 +162,7 @@ const OurServicePage = () => {
     });
   };
 
-  // --- Derived State for Rendering (Frontend Filtering & Pagination) ---
+  // Derived State
   const isLoading = activeServiceTab === "POP" ? isPopLoading : isCocpLoading;
   const isFetching =
     activeServiceTab === "POP" ? isPopFetching : isCocpFetching;
@@ -184,8 +171,7 @@ const OurServicePage = () => {
 
   const allRequests = responseData?.data || [];
 
-  // --- MODIFIED: FILTERING LOGIC ---
-  // Filter data based on the activeStatusTab (which now includes 'Done')
+  // Filter data based on the activeStatusTab
   const filteredRequests = allRequests.filter((req: Pop | Cocp) => {
     switch (activeStatusTab) {
       case TabStatus.Pending:
@@ -193,13 +179,11 @@ const OurServicePage = () => {
       case TabStatus.Decline:
         return req.status === ServiceStatus.Decline;
       case TabStatus.Accept:
-        // "Accepted" tab now shows items that are accepted BUT NOT done
         return (
           req.status === ServiceStatus.Accept &&
           req.deliveryStatus !== DeliveryStatus.Done
         );
       case TabStatus.Done:
-        // "Done" tab shows items that are accepted AND delivery is done
         return (
           req.status === ServiceStatus.Accept &&
           req.deliveryStatus === DeliveryStatus.Done
@@ -209,32 +193,48 @@ const OurServicePage = () => {
     }
   });
 
-  // 3. Apply Local Pagination
-  const currentPage = activeServiceTab === "POP" ? popPage : cocpPage;
-  const setPage = activeServiceTab === "POP" ? setPopPage : setCocpPage;
-
-  const totalItems = filteredRequests.length;
-  const totalPage = Math.ceil(totalItems / localLimit);
-  const startIndex = (currentPage - 1) * localLimit;
-  const endIndex = startIndex + localLimit;
-
-  const requestsToDisplay = filteredRequests.slice(startIndex, endIndex);
-
+  // Helper function to extract user from request
   const getUser = (user: User | string): Partial<User> => {
     return typeof user === "object" ? user : { _id: user };
   };
 
-  // --- MODIFIED: Status Tab Data ---
-  // Use the new TabStatus enum
+  // Group requests by user
+  const groupedRequests = useMemo(() => {
+    const groups: Map<string, GroupedRequests> = new Map();
+
+    filteredRequests.forEach((req: Pop | Cocp) => {
+      const user = getUser(req.userId);
+      const userId = user._id || "unknown";
+
+      if (!groups.has(userId)) {
+        groups.set(userId, { user, requests: [] });
+      }
+      groups.get(userId)!.requests.push(req);
+    });
+
+    return Array.from(groups.values());
+  }, [filteredRequests]);
+
+  // Pagination for grouped view (paginate by groups, not individual requests)
+  const currentPage = activeServiceTab === "POP" ? popPage : cocpPage;
+  const setPage = activeServiceTab === "POP" ? setPopPage : setCocpPage;
+
+  const totalGroups = groupedRequests.length;
+  const totalPage = Math.ceil(totalGroups / localLimit);
+  const startIndex = (currentPage - 1) * localLimit;
+  const endIndex = startIndex + localLimit;
+
+  const groupsToDisplay = groupedRequests.slice(startIndex, endIndex);
+
+  // Status Tab Data
   const statusTabs: { label: string; status: TabStatus }[] = [
     { label: "Pending", status: TabStatus.Pending },
     { label: "Accepted", status: TabStatus.Accept },
     { label: "Declined", status: TabStatus.Decline },
-    { label: "Delivery Done", status: TabStatus.Done }, // New tab
+    { label: "Delivery Done", status: TabStatus.Done },
   ];
 
-  // --- NEW: Helper function for tab counts ---
-  // This correctly counts items for the new tab logic
+  // Helper function for tab counts
   const getTabCount = (status: TabStatus): number => {
     switch (status) {
       case TabStatus.Pending:
@@ -260,34 +260,31 @@ const OurServicePage = () => {
     }
   };
 
-  // --- Component Render ---
+  // Component Render
   return (
     <div>
       {/* Service Tabs (POP/COCP) */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-10 mb-8">
         <div
           onClick={() => handleServiceTabChange("POP")}
-          className={`cursor-pointer rounded-xl shadow-md p-6 border-b-2 border-gray-400 group transition-all duration-300 ${
-            activeServiceTab === "POP"
+          className={`cursor-pointer rounded-xl shadow-md p-6 border-b-2 border-gray-400 group transition-all duration-300 ${activeServiceTab === "POP"
               ? "bg-pink-300 text-white"
               : "bg-white hover:bg-pink-200"
-          }`}
+            }`}
         >
           <p
-            className={`text-md font-medium ${
-              activeServiceTab === "POP"
+            className={`text-md font-medium ${activeServiceTab === "POP"
                 ? "text-white"
                 : "text-gray-600 group-hover:text-white"
-            }`}
+              }`}
           >
             Request
           </p>
           <h2
-            className={`text-2xl font-bold ${
-              activeServiceTab === "POP"
+            className={`text-2xl font-bold ${activeServiceTab === "POP"
                 ? "text-white"
                 : "text-pink-400 group-hover:text-white"
-            }`}
+              }`}
           >
             Progesterone Only Pill (POP)
           </h2>
@@ -295,48 +292,43 @@ const OurServicePage = () => {
 
         <div
           onClick={() => handleServiceTabChange("COCP")}
-          className={`cursor-pointer rounded-xl shadow-md p-6 border-b-2 border-gray-400 group transition-all duration-300 ${
-            activeServiceTab === "COCP"
+          className={`cursor-pointer rounded-xl shadow-md p-6 border-b-2 border-gray-400 group transition-all duration-300 ${activeServiceTab === "COCP"
               ? "bg-pink-300 text-white"
               : "bg-white hover:bg-pink-200"
-          }`}
+            }`}
         >
           <p
-            className={`text-md font-medium ${
-              activeServiceTab === "COCP"
+            className={`text-md font-medium ${activeServiceTab === "COCP"
                 ? "text-white"
                 : "text-gray-600 group-hover:text-white"
-            }`}
+              }`}
           >
             Request
           </p>
           <h2
-            className={`text-2xl font-bold ${
-              activeServiceTab === "COCP"
+            className={`text-2xl font-bold ${activeServiceTab === "COCP"
                 ? "text-white"
                 : "text-pink-400 group-hover:text-white"
-            }`}
+              }`}
           >
             Combined Contraceptive Pill (COCP)
           </h2>
         </div>
       </div>
 
-      {/* --- MODIFIED: Status Tabs --- */}
-      {/* Now maps all four tabs and uses getTabCount */}
+      {/* Status Tabs */}
       <div className="flex justify-center flex-wrap gap-4 mb-16">
         {statusTabs.map((tab) => (
           <button
             key={tab.status}
             onClick={() => handleStatusTabChange(tab.status)}
             className={`py-2 px-6 rounded-lg text-lg font-semibold transition-all duration-200 
-              ${
-                activeStatusTab === tab.status
-                  ? "bg-fuchsia-400 text-white shadow-lg"
-                  : "bg-gray-100 text-gray-700 hover:bg-fuchsia-200"
+              ${activeStatusTab === tab.status
+                ? "bg-fuchsia-400 text-white shadow-lg"
+                : "bg-gray-100 text-gray-700 hover:bg-fuchsia-200"
               }`}
           >
-            {tab.label} ({getTabCount(tab.status)}) {/* Use helper function */}
+            {tab.label} ({getTabCount(tab.status)})
           </button>
         ))}
       </div>
@@ -346,7 +338,6 @@ const OurServicePage = () => {
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-xl font-semibold">
             {activeServiceTab} Requests –{" "}
-            {/* This logic still works for the new "Done" tab */}
             {activeStatusTab.charAt(0).toUpperCase() + activeStatusTab.slice(1)}
           </h2>
           {isFetching && (
@@ -355,142 +346,173 @@ const OurServicePage = () => {
             </span>
           )}
         </div>
-        <table className="w-full border border-pink-200 rounded-2xl">
-          <thead>
-            <tr className="bg-fuchsia-100">
-              <th className="p-2 border border-pink-200">Profile</th>
-              <th className="p-2 border border-pink-200">Name</th>
-              <th className="p-2 border border-pink-200">Email</th>
-              <th className="p-2 border border-pink-200">Phone</th>
-              <th className="p-2 border border-pink-200">Date</th>
-              <th className="p-2 border border-pink-200">Time</th>
-              <th className="p-2 border border-pink-200">Delivery Status</th>
-              <th className="p-2 border border-pink-200">Action</th>
-            </tr>
-          </thead>
-          <tbody>
-            {isLoading ? (
-              <tr>
-                <td colSpan={8} className="p-4 text-center text-gray-500">
-                  Loading service data...
-                </td>
-              </tr>
-            ) : isError ? (
-              <tr>
-                <td colSpan={8} className="p-4 text-center text-red-500">
-                  Failed to load data. Please try again.
-                </td>
-              </tr>
-            ) : requestsToDisplay.length === 0 ? (
-              <tr>
-                <td
-                  colSpan={8}
-                  className="p-4 text-center text-gray-500 italic"
+
+        {/* Grouped Requests View */}
+        {isLoading ? (
+          <div className="p-4 text-center text-gray-500">
+            Loading service data...
+          </div>
+        ) : isError ? (
+          <div className="p-4 text-center text-red-500">
+            Failed to load data. Please try again.
+          </div>
+        ) : groupsToDisplay.length === 0 ? (
+          <div className="p-4 text-center text-gray-500 italic">
+            No {activeStatusTab} requests found for {activeServiceTab}.
+          </div>
+        ) : (
+          <div className="space-y-6">
+            {groupsToDisplay.map((group) => {
+              const user = group.user;
+              const userId = user._id || "unknown";
+
+              return (
+                <div
+                  key={userId}
+                  className="border border-pink-200 rounded-xl overflow-hidden"
                 >
-                  No {activeStatusTab} requests found for {activeServiceTab}.
-                </td>
-              </tr>
-            ) : (
-              requestsToDisplay.map((req: Pop | Cocp) => {
-                const user = getUser(req.userId);
-                const requestType = activeServiceTab.toLowerCase();
-                const { date, time } = formatDateTime(req.createdAt || "");
-
-                return (
-                  <tr key={req._id} className="text-center">
-                    <td className="p-1 border border-pink-200 flex justify-center">
-                      <Image
-                        src={
-                          user.avatar ||
-                          "https://i.postimg.cc/4xLZjmW2/dfb6892164e638fc869bc424d651235a519c6d80.png"
-                        }
-                        alt={user.firstName || "User Avatar"}
-                        width={48}
-                        height={48}
-                        className="w-12 h-12 rounded-full object-cover"
-                      />
-                    </td>
-                    <td className="p-2 border border-pink-200">
-                      {user.firstName || "N/A"}
-                    </td>
-                    <td className="p-2 border border-pink-200">
-                      {user.email || "N/A"}
-                    </td>
-                    <td className="p-2 border border-pink-200">
-                      {user.phoneNumber || "N/A"}
-                    </td>
-                    <td className="p-2 border border-pink-200">{date}</td>
-                    <td className="p-2 border border-pink-200">{time}</td>
-                    <td className="p-2 border border-pink-200">
-                      {req.deliveryStatus
-                        ? req.deliveryStatus.charAt(0).toUpperCase() +
-                          req.deliveryStatus.slice(1)
-                        : "Pending"}
-                    </td>
-                    <td className="p-2 border border-pink-200">
-                      <div className="flex gap-2 justify-center items-center">
-                        {/* Button logic remains the same.
-                          - "Pending" tab shows "Accept/Decline".
-                          - "Accepted", "Declined", and new "Done" tabs 
-                            will all trigger the second block (Details/Delete)
-                            because their `req.status` is not "pending".
-                            This is the correct behavior.
-                        */}
-                        {req.status === ServiceStatus.Pending && (
-                          <>
-                            <Link
-                              href={`/dashboard/our-service/${req._id}?type=${requestType}`}
-                              className="px-3 py-1 bg-blue-200 hover:bg-blue-500 text-blue-800 hover:text-white rounded border border-blue-300 transition-colors"
-                            >
-                              Details
-                            </Link>
-                            <button
-                              onClick={() =>
-                                handleStatusUpdate(req._id, "accept")
-                              }
-                              disabled={isUpdatingStatus}
-                              className="px-3 py-1 bg-green-200 hover:bg-green-500 text-green-800 hover:text-white rounded border border-green-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                              Accept
-                            </button>
-                            <button
-                              onClick={() =>
-                                handleStatusUpdate(req._id, "decline")
-                              }
-                              disabled={isUpdatingStatus}
-                              className="px-3 py-1 bg-yellow-200 hover:bg-yellow-500 text-yellow-800 hover:text-white rounded border border-yellow-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                              Decline
-                            </button>
-                          </>
-                        )}
-                        {(req.status === ServiceStatus.Accept ||
-                          req.status === ServiceStatus.Decline) && (
-                          <>
-                            <Link
-                              href={`/dashboard/our-service/${req._id}?type=${requestType}`}
-                              className="px-3 py-1 bg-blue-200 hover:bg-blue-500 text-blue-800 hover:text-white rounded border border-blue-300 transition-colors"
-                            >
-                              Details
-                            </Link>
-                            <button
-                              onClick={() => handleDelete(req._id)}
-                              className="px-3 py-1 bg-red-200 hover:bg-red-500 text-red-800 hover:text-white rounded border border-red-300 transition-colors"
-                            >
-                              Delete
-                            </button>
-                          </>
-                        )}
+                  {/* User Header Row */}
+                  <div className="bg-fuchsia-100 p-4 flex items-center gap-4">
+                    <Image
+                      src={
+                        user.avatar ||
+                        "https://i.postimg.cc/4xLZjmW2/dfb6892164e638fc869bc424d651235a519c6d80.png"
+                      }
+                      alt={user.firstName || "User Avatar"}
+                      width={56}
+                      height={56}
+                      className="w-14 h-14 rounded-full object-cover border-2 border-pink-300"
+                    />
+                    <div className="flex-1">
+                      <h3 className="text-lg font-bold text-gray-800">
+                        {user.firstName || "Unknown"}{" "}
+                        {user.surname && user.surname}
+                      </h3>
+                      <div className="flex flex-wrap gap-4 text-sm text-gray-600">
+                        <span>{user.email || "No email"}</span>
+                        <span>•</span>
+                        <span>{user.phoneNumber || "No phone"}</span>
                       </div>
-                    </td>
-                  </tr>
-                );
-              })
-            )}
-          </tbody>
-        </table>
+                    </div>
+                    <div className="text-sm text-gray-500 bg-white px-3 py-1 rounded-full">
+                      {group.requests.length} request
+                      {group.requests.length > 1 ? "s" : ""}
+                    </div>
+                  </div>
 
-        {/* Pagination Controls (No changes needed) */}
+                  {/* Requests Table */}
+                  <table className="w-full">
+                    <thead>
+                      <tr className="bg-pink-50">
+                        <th className="p-2 border-b border-pink-200 text-left">
+                          Date
+                        </th>
+                        <th className="p-2 border-b border-pink-200 text-left">
+                          Time
+                        </th>
+                        <th className="p-2 border-b border-pink-200 text-left">
+                          Delivery Status
+                        </th>
+                        <th className="p-2 border-b border-pink-200 text-center">
+                          Action
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {group.requests.map((req) => {
+                        const requestType = activeServiceTab.toLowerCase();
+                        const { date, time } = formatDateTime(
+                          req.createdAt || ""
+                        );
+
+                        return (
+                          <tr
+                            key={req._id}
+                            className="hover:bg-gray-50 transition-colors"
+                          >
+                            <td className="p-3 border-b border-pink-100">
+                              {date}
+                            </td>
+                            <td className="p-3 border-b border-pink-100">
+                              {time}
+                            </td>
+                            <td className="p-3 border-b border-pink-100">
+                              <span
+                                className={`px-2 py-1 rounded-full text-xs font-medium ${req.deliveryStatus === DeliveryStatus.Done
+                                    ? "bg-green-100 text-green-700"
+                                    : req.deliveryStatus ===
+                                      DeliveryStatus.Started
+                                      ? "bg-blue-100 text-blue-700"
+                                      : "bg-gray-100 text-gray-700"
+                                  }`}
+                              >
+                                {req.deliveryStatus
+                                  ? req.deliveryStatus.charAt(0).toUpperCase() +
+                                  req.deliveryStatus.slice(1)
+                                  : "Pending"}
+                              </span>
+                            </td>
+                            <td className="p-3 border-b border-pink-100">
+                              <div className="flex gap-2 justify-center items-center">
+                                {req.status === ServiceStatus.Pending && (
+                                  <>
+                                    <Link
+                                      href={`/dashboard/our-service/${req._id}?type=${requestType}`}
+                                      className="px-3 py-1 bg-blue-200 hover:bg-blue-500 text-blue-800 hover:text-white rounded border border-blue-300 transition-colors"
+                                    >
+                                      Details
+                                    </Link>
+                                    <button
+                                      onClick={() =>
+                                        handleStatusUpdate(req._id, "accept")
+                                      }
+                                      disabled={isUpdatingStatus}
+                                      className="px-3 py-1 bg-green-200 hover:bg-green-500 text-green-800 hover:text-white rounded border border-green-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                      Accept
+                                    </button>
+                                    <button
+                                      onClick={() =>
+                                        handleStatusUpdate(req._id, "decline")
+                                      }
+                                      disabled={isUpdatingStatus}
+                                      className="px-3 py-1 bg-yellow-200 hover:bg-yellow-500 text-yellow-800 hover:text-white rounded border border-yellow-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                      Decline
+                                    </button>
+                                  </>
+                                )}
+                                {(req.status === ServiceStatus.Accept ||
+                                  req.status === ServiceStatus.Decline) && (
+                                    <>
+                                      <Link
+                                        href={`/dashboard/our-service/${req._id}?type=${requestType}`}
+                                        className="px-3 py-1 bg-blue-200 hover:bg-blue-500 text-blue-800 hover:text-white rounded border border-blue-300 transition-colors"
+                                      >
+                                        Details
+                                      </Link>
+                                      <button
+                                        onClick={() => handleDelete(req._id)}
+                                        className="px-3 py-1 bg-red-200 hover:bg-red-500 text-red-800 hover:text-white rounded border border-red-300 transition-colors"
+                                      >
+                                        Delete
+                                      </button>
+                                    </>
+                                  )}
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Pagination Controls */}
         {!isLoading && !isError && totalPage > 1 && (
           <div className="flex justify-end items-center mt-6 space-x-2">
             <button
@@ -518,4 +540,3 @@ const OurServicePage = () => {
 };
 
 export default OurServicePage;
-
