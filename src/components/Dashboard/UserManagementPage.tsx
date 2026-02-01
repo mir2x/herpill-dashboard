@@ -189,7 +189,7 @@ const UserManagementPage = ({ userType }: UserManagementPageProps) => {
                               }
                               disabled={isTogglingStatus}
                             />
-                            <div className="w-11 h-6 bg-red-500 rounded-full transition-colors peer-focus:ring-2 peer-focus:ring-pink-300 peer-checked:bg-green-500"></div>
+                            <div className="w-11 h-6 bg-green-500 rounded-full transition-colors peer-focus:ring-2 peer-focus:ring-pink-300 peer-checked:bg-red-500"></div>
                             <div className="absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform peer-checked:translate-x-full"></div>
                           </label>
                         </div>
