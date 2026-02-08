@@ -139,6 +139,7 @@ const UserManagementPage = ({ userType }: UserManagementPageProps) => {
                   <th className="p-2 border border-pink-200">Name</th>
                   <th className="p-2 border border-pink-200">Email</th>
                   <th className="p-2 border border-pink-200">Status</th>
+                  <th className="p-2 border border-pink-200">Block/Unblock</th>
                   <th className="p-2 border border-pink-200">Action</th>
                 </tr>
               </thead>
@@ -162,6 +163,17 @@ const UserManagementPage = ({ userType }: UserManagementPageProps) => {
                       {`${user.firstName} ${user.surname || ""}`.trim()}
                     </td>
                     <td className="p-2 border border-pink-200">{user.email}</td>
+                    <td className="p-2 border border-pink-200">
+                      {user.blocked ? (
+                        <span className="px-2 py-1 text-xs font-semibold text-white bg-red-500 rounded-full">
+                          Blocked
+                        </span>
+                      ) : (
+                        <span className="px-2 py-1 text-xs font-semibold text-white bg-green-500 rounded-full">
+                          Active
+                        </span>
+                      )}
+                    </td>
                     <td className="p-2 border border-pink-200">
                       {isStaffPage ? (
                         <button
