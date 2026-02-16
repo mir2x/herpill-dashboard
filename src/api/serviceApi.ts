@@ -28,9 +28,13 @@ export const serviceApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
     getPops: builder.query<
       AllPopsResponseData,
-      { page?: number; limit?: number }
+      { page?: number; limit?: number; userId?: string }
     >({
-      query: ({ page = 1, limit = 10 }) => `pop?page=${page}&limit=${limit}`,
+      query: ({ page = 1, limit = 10, userId }) => {
+        let url = `pop?page=${page}&limit=${limit}`;
+        if (userId) url += `&userId=${userId}`;
+        return url;
+      },
       transformResponse: transformServiceResponse<Pop>,
       providesTags: (result) =>
         result
@@ -90,9 +94,13 @@ export const serviceApi = baseApi.injectEndpoints({
 
     getCocps: builder.query<
       AllCocpsResponseData,
-      { page?: number; limit?: number }
+      { page?: number; limit?: number; userId?: string }
     >({
-      query: ({ page = 1, limit = 10 }) => `cocp?page=${page}&limit=${limit}`,
+      query: ({ page = 1, limit = 10, userId }) => {
+        let url = `cocp?page=${page}&limit=${limit}`;
+        if (userId) url += `&userId=${userId}`;
+        return url;
+      },
       transformResponse: transformServiceResponse<Cocp>,
       providesTags: (result) =>
         result
