@@ -367,6 +367,7 @@ const ServiceDetailsPage = () => {
 
             {/* NEW: User-specific details */}
             <DetailItem label="Date of Birth" value={dateOfBirthFormatted} />
+            <DetailItem label="Postcode" value={user.postcode} />
             <DetailItem label="Gender" value={user.gender} />
             <DetailItem label="Sex" value={user.sex} />
             <DetailItem label="NHS Number" value={user.nhs} />
