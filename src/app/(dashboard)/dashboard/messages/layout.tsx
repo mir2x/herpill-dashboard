@@ -13,8 +13,8 @@ const getOtherParticipant = (
   currentUserId?: string
 ): User | null => {
   if (!currentUserId) return null;
-  const other = chat.participants.find((p) => p.user._id !== currentUserId);
-  return other?.user || chat.participants[0]?.user;
+  const other = chat.participants.find((p) => p.user && p.user._id !== currentUserId);
+  return other?.user || chat.participants.find((p) => p.user)?.user || null;
 };
 
 const getAvatarInitials = (name: string = ""): string =>
