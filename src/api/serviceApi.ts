@@ -28,11 +28,12 @@ export const serviceApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
     getPops: builder.query<
       AllPopsResponseData,
-      { page?: number; limit?: number; userId?: string }
+      { page?: number; limit?: number; userId?: string; hidden?: boolean }
     >({
-      query: ({ page = 1, limit = 10, userId }) => {
+      query: ({ page = 1, limit = 10, userId, hidden }) => {
         let url = `pop?page=${page}&limit=${limit}`;
         if (userId) url += `&userId=${userId}`;
+        if (hidden) url += `&hidden=true`;
         return url;
       },
       transformResponse: transformServiceResponse<Pop>,
@@ -82,6 +83,24 @@ export const serviceApi = baseApi.injectEndpoints({
       ],
     }),
 
+    hidePopRequest: builder.mutation<ApiResponse<Pop>, string>({
+      query: (id) => ({
+        url: `pop/update/${id}`,
+        method: "PATCH",
+        body: { hiddenFromServiceList: true },
+      }),
+      invalidatesTags: [{ type: "Pops", id: "LIST" }],
+    }),
+
+    unhidePopRequest: builder.mutation<ApiResponse<Pop>, string>({
+      query: (id) => ({
+        url: `pop/update/${id}`,
+        method: "PATCH",
+        body: { hiddenFromServiceList: false },
+      }),
+      invalidatesTags: [{ type: "Pops", id: "LIST" }],
+    }),
+
     deletePop: builder.mutation<ApiResponse<Pop>, string>({
       query: (id) => ({
         url: `pop/delete/${id}`,
@@ -94,11 +113,12 @@ export const serviceApi = baseApi.injectEndpoints({
 
     getCocps: builder.query<
       AllCocpsResponseData,
-      { page?: number; limit?: number; userId?: string }
+      { page?: number; limit?: number; userId?: string; hidden?: boolean }
     >({
-      query: ({ page = 1, limit = 10, userId }) => {
+      query: ({ page = 1, limit = 10, userId, hidden }) => {
         let url = `cocp?page=${page}&limit=${limit}`;
         if (userId) url += `&userId=${userId}`;
+        if (hidden) url += `&hidden=true`;
         return url;
       },
       transformResponse: transformServiceResponse<Cocp>,
@@ -148,6 +168,24 @@ export const serviceApi = baseApi.injectEndpoints({
       ],
     }),
 
+    hideCocpRequest: builder.mutation<ApiResponse<Cocp>, string>({
+      query: (id) => ({
+        url: `cocp/update/${id}`,
+        method: "PATCH",
+        body: { hiddenFromServiceList: true },
+      }),
+      invalidatesTags: [{ type: "Cocps", id: "LIST" }],
+    }),
+
+    unhideCocpRequest: builder.mutation<ApiResponse<Cocp>, string>({
+      query: (id) => ({
+        url: `cocp/update/${id}`,
+        method: "PATCH",
+        body: { hiddenFromServiceList: false },
+      }),
+      invalidatesTags: [{ type: "Cocps", id: "LIST" }],
+    }),
+
     deleteCocp: builder.mutation<ApiResponse<Cocp>, string>({
       query: (id) => ({
         url: `cocp/delete/${id}`,
@@ -173,9 +211,13 @@ export const {
   useGetPopsQuery,
   useUpdatePopStatusMutation,
   useDeletePopMutation,
+  useHidePopRequestMutation,
+  useUnhidePopRequestMutation,
   useGetCocpsQuery,
   useUpdateCocpStatusMutation,
   useDeleteCocpMutation,
+  useHideCocpRequestMutation,
+  useUnhideCocpRequestMutation,
   useGetPopByIdQuery,
   useGetCocpByIdQuery,
   useUpdatePopDeliveryStatusMutation,

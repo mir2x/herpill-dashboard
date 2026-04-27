@@ -188,6 +188,7 @@ export interface Cocp {
   deliveryStatus: DeliveryStatus;
   deliveredBy?: string;
   status: ServiceStatus;
+  hiddenFromServiceList?: boolean;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -211,6 +212,7 @@ export interface Pop {
   deliveryStatus: DeliveryStatus;
   deliveredBy?: string;
   status: ServiceStatus;
+  hiddenFromServiceList?: boolean;
   createdAt?: string;
   updatedAt?: string;
 }

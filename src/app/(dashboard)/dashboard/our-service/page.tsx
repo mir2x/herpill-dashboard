@@ -7,6 +7,10 @@ import {
   useDeleteCocpMutation,
   useUpdatePopStatusMutation,
   useUpdateCocpStatusMutation,
+  useHidePopRequestMutation,
+  useHideCocpRequestMutation,
+  useUnhidePopRequestMutation,
+  useUnhideCocpRequestMutation,
 } from "@/api/serviceApi";
 import { Pop, Cocp, User, DeliveryStatus } from "@/types";
 import Image from "next/image";
@@ -28,6 +32,7 @@ enum TabStatus {
   Accept = "accept",
   Decline = "decline",
   Done = "done",
+  Hidden = "hidden",
 }
 
 // Utility function to format ISO date string
@@ -91,6 +96,16 @@ const OurServicePage = () => {
     skip: activeServiceTab !== "COCP",
   });
 
+  const { data: hiddenPopResponse } = useGetPopsQuery(
+    { page: 1, limit: 1000, hidden: true },
+    { skip: activeServiceTab !== "POP" }
+  );
+
+  const { data: hiddenCocpResponse } = useGetCocpsQuery(
+    { page: 1, limit: 1000, hidden: true },
+    { skip: activeServiceTab !== "COCP" }
+  );
+
   // RTK Query Mutation Hooks
   const [deletePop] = useDeletePopMutation();
   const [deleteCocp] = useDeleteCocpMutation();
@@ -98,6 +113,10 @@ const OurServicePage = () => {
     useUpdatePopStatusMutation();
   const [updateCocpStatus, { isLoading: isUpdatingCocp }] =
     useUpdateCocpStatusMutation();
+  const [hidePopRequest] = useHidePopRequestMutation();
+  const [hideCocpRequest] = useHideCocpRequestMutation();
+  const [unhidePopRequest] = useUnhidePopRequestMutation();
+  const [unhideCocpRequest] = useUnhideCocpRequestMutation();
 
   const isUpdatingStatus = isUpdatingPop || isUpdatingCocp;
 
@@ -138,6 +157,50 @@ const OurServicePage = () => {
     }
   };
 
+  const handleUnhide = (id: string) => {
+    Swal.fire({
+      title: "Unhide this request?",
+      text: "It will appear again in the service list.",
+      icon: "question",
+      showCancelButton: true,
+      confirmButtonColor: "#10b981",
+      cancelButtonColor: "#6b7280",
+      confirmButtonText: "Yes, unhide it!",
+    }).then(async (result) => {
+      if (result.isConfirmed) {
+        try {
+          const mutation = activeServiceTab === "POP" ? unhidePopRequest : unhideCocpRequest;
+          await mutation(id).unwrap();
+          toast.success("Request is now visible in the service list.");
+        } catch (err: any) {
+          toast.error(err.data?.message || "Failed to unhide request.");
+        }
+      }
+    });
+  };
+
+  const handleHide = (id: string) => {
+    Swal.fire({
+      title: "Hide this request?",
+      text: "It will no longer appear in the service list, but will still be visible on the user's profile.",
+      icon: "question",
+      showCancelButton: true,
+      confirmButtonColor: "#a855f7",
+      cancelButtonColor: "#6b7280",
+      confirmButtonText: "Yes, hide it!",
+    }).then(async (result) => {
+      if (result.isConfirmed) {
+        try {
+          const mutation = activeServiceTab === "POP" ? hidePopRequest : hideCocpRequest;
+          await mutation(id).unwrap();
+          toast.success("Request hidden from service list.");
+        } catch (err: any) {
+          toast.error(err.data?.message || "Failed to hide request.");
+        }
+      }
+    });
+  };
+
   const handleDelete = (id: string) => {
     Swal.fire({
       title: "Are you sure?",
@@ -170,28 +233,35 @@ const OurServicePage = () => {
   const responseData = activeServiceTab === "POP" ? popResponse : cocpResponse;
 
   const allRequests = responseData?.data || [];
+  const hiddenRequests =
+    activeServiceTab === "POP"
+      ? hiddenPopResponse?.data || []
+      : hiddenCocpResponse?.data || [];
 
   // Filter data based on the activeStatusTab
-  const filteredRequests = allRequests.filter((req: Pop | Cocp) => {
-    switch (activeStatusTab) {
-      case TabStatus.Pending:
-        return req.status === ServiceStatus.Pending;
-      case TabStatus.Decline:
-        return req.status === ServiceStatus.Decline;
-      case TabStatus.Accept:
-        return (
-          req.status === ServiceStatus.Accept &&
-          req.deliveryStatus !== DeliveryStatus.Done
-        );
-      case TabStatus.Done:
-        return (
-          req.status === ServiceStatus.Accept &&
-          req.deliveryStatus === DeliveryStatus.Done
-        );
-      default:
-        return false;
-    }
-  });
+  const filteredRequests =
+    activeStatusTab === TabStatus.Hidden
+      ? hiddenRequests
+      : allRequests.filter((req: Pop | Cocp) => {
+        switch (activeStatusTab) {
+          case TabStatus.Pending:
+            return req.status === ServiceStatus.Pending;
+          case TabStatus.Decline:
+            return req.status === ServiceStatus.Decline;
+          case TabStatus.Accept:
+            return (
+              req.status === ServiceStatus.Accept &&
+              req.deliveryStatus !== DeliveryStatus.Done
+            );
+          case TabStatus.Done:
+            return (
+              req.status === ServiceStatus.Accept &&
+              req.deliveryStatus === DeliveryStatus.Done
+            );
+          default:
+            return false;
+        }
+      });
 
   // Helper function to extract user from request
   const getUser = (user: User | string): Partial<User> => {
@@ -232,17 +302,16 @@ const OurServicePage = () => {
     { label: "Accepted", status: TabStatus.Accept },
     { label: "Declined", status: TabStatus.Decline },
     { label: "Delivery Done", status: TabStatus.Done },
+    { label: "Hidden", status: TabStatus.Hidden },
   ];
 
   // Helper function for tab counts
   const getTabCount = (status: TabStatus): number => {
     switch (status) {
       case TabStatus.Pending:
-        return allRequests.filter((r) => r.status === ServiceStatus.Pending)
-          .length;
+        return allRequests.filter((r) => r.status === ServiceStatus.Pending).length;
       case TabStatus.Decline:
-        return allRequests.filter((r) => r.status === ServiceStatus.Decline)
-          .length;
+        return allRequests.filter((r) => r.status === ServiceStatus.Decline).length;
       case TabStatus.Accept:
         return allRequests.filter(
           (r) =>
@@ -255,6 +324,8 @@ const OurServicePage = () => {
             r.status === ServiceStatus.Accept &&
             r.deliveryStatus === DeliveryStatus.Done
         ).length;
+      case TabStatus.Hidden:
+        return hiddenRequests.length;
       default:
         return 0;
     }
@@ -482,7 +553,28 @@ const OurServicePage = () => {
                                     </button>
                                   </>
                                 )}
-                                {(req.status === ServiceStatus.Accept ||
+                                {activeStatusTab === TabStatus.Hidden ? (
+                                  <>
+                                    <Link
+                                      href={`/dashboard/our-service/${req._id}?type=${requestType}`}
+                                      className="px-3 py-1 bg-blue-200 hover:bg-blue-500 text-blue-800 hover:text-white rounded border border-blue-300 transition-colors"
+                                    >
+                                      Details
+                                    </Link>
+                                    <button
+                                      onClick={() => handleUnhide(req._id)}
+                                      className="px-3 py-1 bg-green-200 hover:bg-green-500 text-green-800 hover:text-white rounded border border-green-300 transition-colors"
+                                    >
+                                      Unhide
+                                    </button>
+                                    <button
+                                      onClick={() => handleDelete(req._id)}
+                                      className="px-3 py-1 bg-red-200 hover:bg-red-500 text-red-800 hover:text-white rounded border border-red-300 transition-colors"
+                                    >
+                                      Delete
+                                    </button>
+                                  </>
+                                ) : (req.status === ServiceStatus.Accept ||
                                   req.status === ServiceStatus.Decline) && (
                                     <>
                                       <Link
@@ -491,6 +583,14 @@ const OurServicePage = () => {
                                       >
                                         Details
                                       </Link>
+                                      {activeStatusTab === TabStatus.Done && (
+                                        <button
+                                          onClick={() => handleHide(req._id)}
+                                          className="px-3 py-1 bg-purple-200 hover:bg-purple-500 text-purple-800 hover:text-white rounded border border-purple-300 transition-colors"
+                                        >
+                                          Hide
+                                        </button>
+                                      )}
                                       <button
                                         onClick={() => handleDelete(req._id)}
                                         className="px-3 py-1 bg-red-200 hover:bg-red-500 text-red-800 hover:text-white rounded border border-red-300 transition-colors"
