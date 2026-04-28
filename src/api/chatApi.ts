@@ -1,5 +1,6 @@
 import {
   ApiResponse,
+  Chat,
   ChatsResponseData,
   Message,
   MessagesResponseData,
@@ -37,7 +38,7 @@ export const chatApi = baseApi.injectEndpoints({
       ],
     }),
 
-    deleteChat: builder.mutation<ApiResponse<null>, string>({
+    deleteChat: builder.mutation<ApiResponse<Chat>, string>({
       query: (chatId) => ({
         url: `chat/${chatId}`,
         method: "DELETE",

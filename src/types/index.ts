@@ -123,6 +123,7 @@ export interface ChatParticipant {
 export interface Chat {
   _id: string;
   participants: ChatParticipant[];
+  hiddenFor?: string[];
   createdAt: string;
   updatedAt: string;
 }

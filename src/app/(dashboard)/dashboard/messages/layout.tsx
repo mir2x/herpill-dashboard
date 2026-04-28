@@ -6,7 +6,7 @@ import { useGetChatsQuery, useDeleteChatMutation } from "@/api/chatApi";
 import { useSelector } from "react-redux";
 import { RootState } from "@/store";
 import { Chat, User } from "@/types";
-import { Trash2 } from "lucide-react";
+import { Archive } from "lucide-react";
 
 const getOtherParticipant = (
   chat: Chat,
@@ -51,7 +51,7 @@ export default function MessagesLayout({
   const handleDeleteChat = async (e: React.MouseEvent, chatId: string) => {
     e.preventDefault();
     e.stopPropagation();
-    if (!confirm("Are you sure you want to delete this conversation? This will permanently remove all messages.")) return;
+    if (!confirm("Hide this conversation from your inbox? The user can still message support again.")) return;
     await deleteChat(chatId).unwrap();
     if (activeChatId === chatId) {
       router.push("/dashboard/messages");
@@ -114,9 +114,9 @@ export default function MessagesLayout({
                       onClick={(e) => handleDeleteChat(e, chat._id)}
                       disabled={isDeletingChat}
                       className="ml-2 flex-shrink-0 p-1.5 rounded-md text-gray-400 opacity-0 group-hover:opacity-100 hover:text-red-500 hover:bg-red-50 transition-opacity disabled:opacity-50"
-                      title="Delete conversation"
+                      title="Hide conversation"
                     >
-                      <Trash2 className="h-4 w-4" />
+                      <Archive className="h-4 w-4" />
                     </button>
                   </div>
                 </Link>
