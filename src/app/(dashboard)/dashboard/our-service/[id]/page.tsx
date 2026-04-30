@@ -172,7 +172,7 @@ const ServiceDetailsPage = () => {
     // Assuming selectedStaff holds the name. If it holds ID, we need to find the name.
     // Let's assume the dropdown values are names for simplicity as per "sent the name choosen".
 
-    const promise =
+    const promise: Promise<unknown> =
       type === "pop"
         ? updatePopStatus({
           id,
