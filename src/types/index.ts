@@ -50,6 +50,7 @@ export interface User {
   contraception?: string;
   blocked: boolean;
   deviceTokens?: string[];
+  chatId?: string;
   createdAt?: string;
   updatedAt?: string;
 }

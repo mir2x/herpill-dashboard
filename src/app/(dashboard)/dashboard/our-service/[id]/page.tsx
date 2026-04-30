@@ -6,6 +6,7 @@ import {
   useUpdatePopDeliveryStatusMutation,
   useUpdateCocpDeliveryStatusMutation,
 } from "@/api/serviceApi";
+import { useResolveUserChatMutation } from "@/api/chatApi";
 import { useGetAllUserQuery } from "@/api/userApi";
 import { Pop, Cocp, User, DeliveryStatus } from "@/types";
 import { useParams, useSearchParams, useRouter } from "next/navigation";
@@ -22,7 +23,6 @@ import {
   Truck,
 } from "lucide-react";
 import toast from "react-hot-toast";
-import Link from "next/link";
 import { useState } from "react";
 
 // Reusable component for displaying key-value pairs
@@ -73,12 +73,10 @@ const ServiceDetailsPage = () => {
   const {
     data: popResponse,
     isLoading: isPopLoading,
-    isError: isPopError,
   } = useGetPopByIdQuery(id, { skip: type !== "pop" });
   const {
     data: cocpResponse,
     isLoading: isCocpLoading,
-    isError: isCocpError,
   } = useGetCocpByIdQuery(id, { skip: type !== "cocp" });
 
   // Fetch staff members
@@ -94,10 +92,11 @@ const ServiceDetailsPage = () => {
     useUpdatePopDeliveryStatusMutation();
   const [updateCocpStatus, { isLoading: isCocpUpdateLoading }] =
     useUpdateCocpDeliveryStatusMutation();
+  const [resolveUserChat, { isLoading: isResolvingChat }] =
+    useResolveUserChatMutation();
   const isUpdating = isPopUpdateLoading || isCocpUpdateLoading;
 
   const isLoading = isPopLoading || isCocpLoading;
-  const isError = isPopError || isCocpError;
   const response = type === "pop" ? popResponse : cocpResponse;
 
   if (isLoading)
@@ -122,6 +121,28 @@ const ServiceDetailsPage = () => {
   const requestData = response.data as Pop | Cocp;
   const user = requestData.userId as User;
   const requestType = type.toUpperCase();
+
+  const handleSendMessage = async () => {
+    try {
+      const response = await resolveUserChat(user._id).unwrap();
+      if (response.success) {
+        router.push(`/dashboard/messages/${response.data._id}`);
+      } else {
+        toast.error(response.message || "Unable to open conversation.");
+      }
+    } catch (err: unknown) {
+      const message =
+        err &&
+        typeof err === "object" &&
+        "data" in err &&
+        err.data &&
+        typeof err.data === "object" &&
+        "message" in err.data
+          ? String(err.data.message)
+          : "Unable to open conversation.";
+      toast.error(message);
+    }
+  };
 
   const joinedOn = new Date(user.createdAt!).toLocaleDateString("en-US", {
     year: "numeric",
@@ -164,7 +185,7 @@ const ServiceDetailsPage = () => {
           deliveredBy: newStatus === DeliveryStatus.Done ? selectedStaff : undefined,
         }).unwrap();
 
-    toast.promise(promise as any, {
+    toast.promise(promise, {
       loading: "Updating delivery status...",
       success: "Status updated successfully!",
       error: "Failed to update status.",
@@ -187,12 +208,13 @@ const ServiceDetailsPage = () => {
             {requestType} Request Details
           </h1>
         </div>
-        <Link
-          href="/dashboard/messages"
-          className="bg-pink-200 text-pink-800 hover:bg-pink-400 hover:text-white px-4 py-2 rounded-lg transition"
+        <button
+          onClick={handleSendMessage}
+          disabled={isResolvingChat}
+          className="bg-pink-200 text-pink-800 hover:bg-pink-400 hover:text-white px-4 py-2 rounded-lg transition disabled:opacity-60 disabled:cursor-not-allowed"
         >
-          Send Message
-        </Link>
+          {isResolvingChat ? "Opening..." : "Send Message"}
+        </button>
       </div>
 
       {/* Main Content Card */}

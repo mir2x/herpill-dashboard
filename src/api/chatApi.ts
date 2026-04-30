@@ -45,6 +45,14 @@ export const chatApi = baseApi.injectEndpoints({
       }),
       invalidatesTags: ["ChatList"],
     }),
+
+    resolveUserChat: builder.mutation<ApiResponse<Chat>, string>({
+      query: (userId) => ({
+        url: `chat/resolve-user/${userId}`,
+        method: "POST",
+      }),
+      invalidatesTags: ["ChatList"],
+    }),
   }),
 });
 
@@ -53,4 +61,5 @@ export const {
   useGetMessagesQuery,
   useSendImageMessageMutation,
   useDeleteChatMutation,
+  useResolveUserChatMutation,
 } = chatApi;

@@ -2,9 +2,9 @@
 
 import { useGetUserByIdQuery } from "@/api/userApi";
 import { useGetPopsQuery, useGetCocpsQuery } from "@/api/serviceApi";
+import { useResolveUserChatMutation } from "@/api/chatApi";
 import { Pop, Cocp, DeliveryStatus } from "@/types";
 import {
-  User as UserIcon,
   Calendar,
   Mail,
   Phone,
@@ -17,6 +17,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useState } from "react";
+import toast from "react-hot-toast";
 
 // A reusable component to display user details neatly
 const DetailItem = ({
@@ -70,7 +71,7 @@ const formatDateTime = (isoString: string) => {
       minute: "2-digit",
     });
     return { date, time };
-  } catch (error) {
+  } catch {
     return { date: "Invalid Date", time: "Invalid Time" };
   }
 };
@@ -83,6 +84,8 @@ const UserDetailsPage = () => {
   const [activeServiceTab, setActiveServiceTab] = useState<"POP" | "COCP">(
     "POP"
   );
+  const [resolveUserChat, { isLoading: isResolvingChat }] =
+    useResolveUserChatMutation();
 
   const {
     data: userResponse,
@@ -129,6 +132,30 @@ const UserDetailsPage = () => {
 
   const user = userResponse.data;
 
+  const handleSendMessage = async () => {
+    if (!id) return;
+
+    try {
+      const response = await resolveUserChat(id).unwrap();
+      if (response.success) {
+        router.push(`/dashboard/messages/${response.data._id}`);
+      } else {
+        toast.error(response.message || "Unable to open conversation.");
+      }
+    } catch (err: unknown) {
+      const message =
+        err &&
+        typeof err === "object" &&
+        "data" in err &&
+        err.data &&
+        typeof err.data === "object" &&
+        "message" in err.data
+          ? String(err.data.message)
+          : "Unable to open conversation.";
+      toast.error(message);
+    }
+  };
+
   // Format the join date
   const joinedOn = new Date(user.createdAt!).toLocaleDateString("en-US", {
     year: "numeric",
@@ -159,8 +186,12 @@ const UserDetailsPage = () => {
             {`${user.firstName} ${user.surname || ""}`.trim()}
           </h1>
         </div>
-        <button className="bg-pink-200 text-pink-800 hover:bg-pink-400 hover:text-white px-4 py-2 rounded-lg transition mt-4 md:mt-0">
-          Send Message
+        <button
+          onClick={handleSendMessage}
+          disabled={isResolvingChat}
+          className="bg-pink-200 text-pink-800 hover:bg-pink-400 hover:text-white px-4 py-2 rounded-lg transition mt-4 md:mt-0 disabled:opacity-60 disabled:cursor-not-allowed"
+        >
+          {isResolvingChat ? "Opening..." : "Send Message"}
         </button>
       </div>
 
@@ -384,4 +415,3 @@ const UserDetailsPage = () => {
 };
 
 export default UserDetailsPage;
-
