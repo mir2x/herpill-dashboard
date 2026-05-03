@@ -4,6 +4,7 @@ import { useGetUserByIdQuery } from "@/api/userApi";
 import { useGetPopsQuery, useGetCocpsQuery } from "@/api/serviceApi";
 import { useResolveUserChatMutation } from "@/api/chatApi";
 import { Pop, Cocp, DeliveryStatus } from "@/types";
+import UserDetailsEditForm from "@/components/User/UserDetailsEditForm";
 import {
   Calendar,
   Mail,
@@ -18,6 +19,8 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useState } from "react";
 import toast from "react-hot-toast";
+import { useSelector } from "react-redux";
+import { RootState } from "@/store";
 
 // A reusable component to display user details neatly
 const DetailItem = ({
@@ -80,6 +83,10 @@ const UserDetailsPage = () => {
   const params = useParams();
   const router = useRouter();
   const id = Array.isArray(params.id) ? params.id[0] : params.id;
+  const currentUserRole = useSelector(
+    (state: RootState) => state.auth.user?.role
+  );
+  const canEditDetails = currentUserRole === "admin";
 
   const [activeServiceTab, setActiveServiceTab] = useState<"POP" | "COCP">(
     "POP"
@@ -258,6 +265,8 @@ const UserDetailsPage = () => {
             <DetailItem label="Account Blocked" value={user.blocked} />
           </div>
         </div>
+
+        {canEditDetails && <UserDetailsEditForm user={user} />}
       </div>
 
       {/* Service Requests Section */}

@@ -1,5 +1,3 @@
-import { User } from "lucide-react";
-
 export type CreateStaffRequest = Pick<User, "email" | "firstName"> & {
   password: string;
 };
@@ -114,6 +112,23 @@ export type AllUsersResponseData = PaginatedResponse<User>;
 
 export type UpdateAvatarRequest = {
   avatar: File;
+};
+
+export type UpdateUserDetailsRequest = Required<
+  Pick<
+    User,
+    | "firstName"
+    | "surname"
+    | "avatar"
+    | "dateOfBirth"
+    | "phoneNumber"
+    | "postcode"
+    | "nhs"
+    | "contraception"
+  >
+> & {
+  gender: Gender | "";
+  sex: Sex | "";
 };
 
 export interface ChatParticipant {

@@ -5,6 +5,7 @@ import {
   LoginResponseData,
   ProfileResponseData,
   UpdateAvatarRequest,
+  UpdateUserDetailsRequest,
   User,
 } from "@/types";
 import { baseApi } from "./api";
@@ -38,6 +39,22 @@ export const userApi = baseApi.injectEndpoints({
       }),
       invalidatesTags: ["User"],
     }),
+
+    updateUserDetails: builder.mutation<
+      ApiResponse<User>,
+      { id: string; data: UpdateUserDetailsRequest }
+    >({
+      query: ({ id, data }) => ({
+        url: `user/${id}/details`,
+        method: "PATCH",
+        body: data,
+      }),
+      invalidatesTags: (result, error, { id }) => [
+        { type: "Users", id },
+        { type: "Users", id: "LIST" },
+      ],
+    }),
+
     updateAvatar: builder.mutation<
       ApiResponse<ProfileResponseData>,
       UpdateAvatarRequest
@@ -133,6 +150,7 @@ export const {
   useCreateStaffMutation,
   useGetProfileQuery,
   useUpdateProfileMutation,
+  useUpdateUserDetailsMutation,
   useUpdateAvatarMutation,
   useGetAllUserQuery,
   useGetUserByIdQuery,

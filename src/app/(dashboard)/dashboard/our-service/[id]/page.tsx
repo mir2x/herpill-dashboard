@@ -9,6 +9,7 @@ import {
 import { useResolveUserChatMutation } from "@/api/chatApi";
 import { useGetAllUserQuery } from "@/api/userApi";
 import { Pop, Cocp, User, DeliveryStatus } from "@/types";
+import UserDetailsEditForm from "@/components/User/UserDetailsEditForm";
 import { useParams, useSearchParams, useRouter } from "next/navigation";
 import Image from "next/image";
 import {
@@ -24,6 +25,8 @@ import {
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { useState } from "react";
+import { useSelector } from "react-redux";
+import { RootState } from "@/store";
 
 // Reusable component for displaying key-value pairs
 const DetailItem = ({
@@ -68,15 +71,21 @@ const ServiceDetailsPage = () => {
 
   const id = params.id as string;
   const type = searchParams.get("type"); // 'pop' or 'cocp'
+  const currentUserRole = useSelector(
+    (state: RootState) => state.auth.user?.role
+  );
+  const canEditDetails = currentUserRole === "admin";
 
   // Conditionally fetch data based on the 'type' query parameter
   const {
     data: popResponse,
     isLoading: isPopLoading,
+    refetch: refetchPop,
   } = useGetPopByIdQuery(id, { skip: type !== "pop" });
   const {
     data: cocpResponse,
     isLoading: isCocpLoading,
+    refetch: refetchCocp,
   } = useGetCocpByIdQuery(id, { skip: type !== "cocp" });
 
   // Fetch staff members
@@ -254,6 +263,19 @@ const ServiceDetailsPage = () => {
             </div>
           </div>
         </section>
+
+        {canEditDetails && (
+          <UserDetailsEditForm
+            user={user}
+            onUpdated={() => {
+              if (type === "pop") {
+                refetchPop();
+              } else if (type === "cocp") {
+                refetchCocp();
+              }
+            }}
+          />
+        )}
 
         {/* Request Details Section */}
         <section>
