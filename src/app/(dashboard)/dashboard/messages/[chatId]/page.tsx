@@ -105,9 +105,18 @@ const ChatPage = () => {
       if (incomingMessage.chatId === activeChatId) {
         dispatch(
           chatApi.util.updateQueryData("getMessages", activeChatId, (draft) => {
+            const normalizedSenderId =
+              incomingMessage.senderId ??
+              incomingMessage.sender?._id ??
+              null;
+
+            if (!normalizedSenderId) {
+              return;
+            }
+
             const normalizedMessage: Message = {
               ...incomingMessage,
-              senderId: incomingMessage.senderId || incomingMessage.sender?._id,
+              senderId: normalizedSenderId,
             };
             if (
               draft.success &&
