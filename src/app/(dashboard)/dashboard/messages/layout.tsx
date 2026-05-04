@@ -17,14 +17,15 @@ const getOtherParticipant = (
   return other?.user || chat.participants.find((p) => p.user)?.user || null;
 };
 
-const getAvatarInitials = (name: string = ""): string =>
-  name
+const getAvatarInitials = (name?: string | null): string =>
+  (name || "")
     .split(" ")
     .map((n) => n[0])
     .join("")
     .substring(0, 2)
-    .toUpperCase();
-const getAvatarColor = (name: string = ""): string => {
+    .toUpperCase() || "?";
+
+const getAvatarColor = (name?: string | null): string => {
   const colors = [
     "bg-blue-500",
     "bg-green-500",
@@ -32,7 +33,8 @@ const getAvatarColor = (name: string = ""): string => {
     "bg-pink-500",
     "bg-orange-500",
   ];
-  return colors[name.length % colors.length];
+  const safeName = name || "";
+  return colors[safeName.length % colors.length] || colors[0];
 };
 
 export default function MessagesLayout({
@@ -73,6 +75,8 @@ export default function MessagesLayout({
             chatsResponse.data.data.map((chat) => {
               const participant = getOtherParticipant(chat, currentUserId);
               if (!participant) return null;
+              const participantName = participant.firstName || participant.surname || "Unknown User";
+              const participantFullName = `${participant.firstName || ""} ${participant.surname || ""}`.trim() || "Unknown User";
               return (
                 <Link
                   key={chat._id}
@@ -88,23 +92,23 @@ export default function MessagesLayout({
                   >
                     <div
                       className={`relative flex-shrink-0 h-12 w-12 rounded-full ${getAvatarColor(
-                        participant.firstName
+                        participantName
                       )} flex items-center justify-center text-white font-semibold`}
                     >
                       {participant.avatar ? (
                         <Image
                           src={participant.avatar}
-                          alt={participant.firstName}
+                          alt={participantFullName}
                           layout="fill"
                           className="rounded-full object-cover"
                         />
                       ) : (
-                        getAvatarInitials(participant.firstName)
+                        getAvatarInitials(participantName)
                       )}
                     </div>
                     <div className="ml-4 flex-1 min-w-0">
                       <h3 className="font-semibold truncate text-gray-900">
-                        {participant.firstName} {participant.surname}
+                        {participantFullName}
                       </h3>
                       <p className="text-sm text-gray-600 truncate mt-1">
                         ID: {participant._id.slice(-6)}

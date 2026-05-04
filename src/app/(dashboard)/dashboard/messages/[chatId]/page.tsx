@@ -13,7 +13,18 @@ import {
 } from "@/api/chatApi";
 import { useSocket } from "@/context/SocketContext";
 import { RootState, useAppDispatch } from "@/store";
-import { Chat, User, Message } from "@/types";
+import { ApiResponse, Chat, ChatsResponseData, User, Message } from "@/types";
+
+type ChatsQueryResult = {
+  data?: ApiResponse<ChatsResponseData>;
+  isLoading: boolean;
+};
+
+type IncomingMessage = Message & {
+  sender?: {
+    _id?: string;
+  };
+};
 
 // Helper functions (no changes)
 const getOtherParticipant = (
@@ -24,15 +35,15 @@ const getOtherParticipant = (
   return other?.user || null;
 };
 
-const getAvatarInitials = (name: string = ""): string =>
-  name
+const getAvatarInitials = (name?: string | null): string =>
+  (name || "")
     .split(" ")
     .map((n) => n[0])
     .join("")
     .substring(0, 2)
-    .toUpperCase();
+    .toUpperCase() || "?";
 
-const getAvatarColor = (name: string = ""): string => {
+const getAvatarColor = (name?: string | null): string => {
   const colors = [
     "bg-blue-500",
     "bg-green-500",
@@ -40,7 +51,8 @@ const getAvatarColor = (name: string = ""): string => {
     "bg-pink-500",
     "bg-orange-500",
   ];
-  return colors[name.length % colors.length];
+  const safeName = name || "";
+  return colors[safeName.length % colors.length] || colors[0];
 };
 
 const ChatPage = () => {
@@ -61,7 +73,7 @@ const ChatPage = () => {
 
   // --- RTK QUERY HOOKS (no changes) ---
   const selectActiveChat = useMemo(() => {
-    return (chatsResult: any) => {
+    return (chatsResult: ChatsQueryResult) => {
       const chat = chatsResult.data?.success
         ? chatsResult.data.data.data.find((c: Chat) => c._id === activeChatId)
         : null;
@@ -89,7 +101,7 @@ const ChatPage = () => {
     if (!socket || !isConnected || !activeChatId || !activeChat) return;
 
     socket.emit("joinChat", activeChatId);
-    const handleReceiveMessage = (incomingMessage: any) => {
+    const handleReceiveMessage = (incomingMessage: IncomingMessage) => {
       if (incomingMessage.chatId === activeChatId) {
         dispatch(
           chatApi.util.updateQueryData("getMessages", activeChatId, (draft) => {
@@ -167,29 +179,34 @@ const ChatPage = () => {
     );
   }
 
+  const otherUserName = otherUser.firstName || otherUser.surname || "Unknown User";
+  const otherUserFullName =
+    `${otherUser.firstName || ""} ${otherUser.surname || ""}`.trim() ||
+    "Unknown User";
+
   return (
     <>
       {/* Chat Header */}
       <div className="p-5 border-b border-gray-200 bg-white flex items-center">
         <div
           className={`relative flex-shrink-0 h-10 w-10 rounded-full ${getAvatarColor(
-            otherUser.firstName
+            otherUserName
           )} flex items-center justify-center text-white font-semibold`}
         >
           {otherUser.avatar ? (
             <Image
               src={otherUser.avatar}
-              alt={otherUser.firstName}
+              alt={otherUserFullName}
               layout="fill"
               className="rounded-full object-cover"
             />
           ) : (
-            getAvatarInitials(otherUser.firstName)
+            getAvatarInitials(otherUserName)
           )}
         </div>
         <div className="ml-4">
           <h2 className="text-lg font-semibold">
-            {otherUser.firstName} {otherUser.surname}
+            {otherUserFullName}
           </h2>
           <p
             className={`text-xs ${
